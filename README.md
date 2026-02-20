@@ -1,2 +1,30 @@
 # hydroqc
-Simulate and Validate Hydro Quebec Winter Credit option under CPC
+
+This repository contains my Home Assistant optimisations in order to minimise energy consumption and maximise winter credits offered by Hydro Quebec to customers that join the Winter Credit Option under Plan D, also know as CPC.
+
+Historically, I started optimising energy well before HQ introduced the WCO program and even before I had Home Assistant. My goal was to optimise a 35 year old Lennox heat pump that had an energy inefficient timer-based defrost board. By building a new board based on ESP32, I was able to save about $300 annually by defrosting only when necessary.
+
+Since this project forced me to monitor energy consumption on the heat pump, the electric furnace and other room heating, I extended the project to modify heating patterns when the Winter Credit Option was first introduced as a pilot project. I finally migrated all my custom ESP32 based heating controls over to ESPHome and Home Assistant.
+
+Since 2020, every year, the optimisations have improved, energy consumption has decreased and WCO credit $ have increased. I am sharing these optimisations to anyone having Home Assistant with sensors and controls for energy consumption and home heating.
+
+This year, an addtional tool was built: The WCO simulator and validator spreadsheet. This tool can fetch a user's winter credit details and full hourly consumption history to validate that your credits are calcuated propertly by Hydro Quebec. Furthermore, the tool allows a user to run "what-if" scenarios in order to determine the best parameters for energy savings all the while maximising credit $ available from Hydro Quebec under the program.
+
+Please see the Wiki for detailed instruction and explanations of the HA optimisations and WCO simulator and validator spreadsheet
+
+### A word from the author:
+> Under no circumstances does the author condone or encourage the abuse of the Hydro Quebec Winter Credit Option by wasteful energy use for the sole purpose of deriving credit dollars.
+
+## License
+
+> This code is released into the public domain for non-commercial use.
+> 
+> Permission is granted to copy, modify, and redistribute this code, provided
+> that proper credit is given to the original author in any derivative works
+> or redistributed versions.
+> This code is provided "as is" without warranty of any kind, express or
+> implied. The author shall not be held liable for any damages, losses, or
+> other issues arising from the use, misuse, or inability to use this code.
+
+> Commercial use requires prior written permission from the author.
+
