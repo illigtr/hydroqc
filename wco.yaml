@@ -1,41 +1,5 @@
 # Updated January 26th, 2026
 #
-# This package can be included in the epanel.yaml to 
-# support HQ WCO sensor to optimise savings
-#
-# This package relies on a total_daily_sensor called "total_Wh".
-# this sensor should be the whole house CT or the sum of all other CTS
-# If it is nameed secondsCriticalAnchorerently, then search and replace with the correct name.
-#
-# History
-#
-# v1.0.0  - Dec 9,2025 introduce accumlated kWh for various HQ periods - perhaps be able to do historical forward averaging.
-#           NOTE: This never stuck, panic/exception after good OTA upload
-#                 Finally disabled PSRAM and switched framework from Ardruino to ESP-IDF. 
-#                 Now it fucking loads and runs!
-# v1.1.0 - Dec 21, 2025
-#        - removed the cumulative kWh per WC period. keeping only critical anchor
-#        - changed critical anchor to show real time house consumption
-#        - included a calculated TARGET critical anchor consumption value.
-# v1.1.1 - Dec 23, 2025
-#        - fixed error in Wh/kWh in real time house consumption
-# v1.2.0 - January 6, 2026
-#          New calculations for Critical Anchor Target
-# v1.3.0 - January 8, 2026
-#          Fix calculations prorate was backwards, don't need target 2, always using target 1
-#          Fixed critical energy tracking for both stay under target and exceed target. Automated now.
-# v1.4.0 - January 21, 2026 - for total untracked, ensure to add up only positive values for devices that are actually online.
-# v1.4.1 - January 21, 2026 - fix math for Anchor Untracked and Anchor Unused. Parentheses missing
-# v1.4.2 - January 25, 2026 - fix the lambda for critical anchor energy so it always increases.
-# v1.5.0 - Jan 26, 2026 - removed everything WCO to package to share with Paul D. introduced versioning
-# v1.5.1 - added logging to the critical anchor energy section, renamed 2 sensors.
-# v1.6.0 - Jan 27, 2025
-#        - added 2 test switches to allow testing at any time without affecting historicial or stats.
-#        - fixed other variable names for readability
-# v1.6.5 - fixed possible network timing issues (paul d) where hydro_qc updates WCO period just before noon, local HA time!
-# v2.0.0 - a partial rewrite due to the misinterpretation of the temperature adjustment for method 2.
-#          certain sensors are no longer required.
-
 substitutions:
   pkg_version: "2.0.0"
 
@@ -375,3 +339,4 @@ sensor:
                 id(last_energyTracked) = 0.0;
                 return 0;
               }
+
