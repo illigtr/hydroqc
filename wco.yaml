@@ -1,0 +1,377 @@
+# Updated January 26th, 2026
+#
+# This package can be included in the epanel.yaml to 
+# support HQ WCO sensor to optimise savings
+#
+# This package relies on a total_daily_sensor called "total_Wh".
+# this sensor should be the whole house CT or the sum of all other CTS
+# If it is nameed secondsCriticalAnchorerently, then search and replace with the correct name.
+#
+# History
+#
+# v1.0.0  - Dec 9,2025 introduce accumlated kWh for various HQ periods - perhaps be able to do historical forward averaging.
+#           NOTE: This never stuck, panic/exception after good OTA upload
+#                 Finally disabled PSRAM and switched framework from Ardruino to ESP-IDF. 
+#                 Now it fucking loads and runs!
+# v1.1.0 - Dec 21, 2025
+#        - removed the cumulative kWh per WC period. keeping only critical anchor
+#        - changed critical anchor to show real time house consumption
+#        - included a calculated TARGET critical anchor consumption value.
+# v1.1.1 - Dec 23, 2025
+#        - fixed error in Wh/kWh in real time house consumption
+# v1.2.0 - January 6, 2026
+#          New calculations for Critical Anchor Target
+# v1.3.0 - January 8, 2026
+#          Fix calculations prorate was backwards, don't need target 2, always using target 1
+#          Fixed critical energy tracking for both stay under target and exceed target. Automated now.
+# v1.4.0 - January 21, 2026 - for total untracked, ensure to add up only positive values for devices that are actually online.
+# v1.4.1 - January 21, 2026 - fix math for Anchor Untracked and Anchor Unused. Parentheses missing
+# v1.4.2 - January 25, 2026 - fix the lambda for critical anchor energy so it always increases.
+# v1.5.0 - Jan 26, 2026 - removed everything WCO to package to share with Paul D. introduced versioning
+# v1.5.1 - added logging to the critical anchor energy section, renamed 2 sensors.
+# v1.6.0 - Jan 27, 2025
+#        - added 2 test switches to allow testing at any time without affecting historicial or stats.
+#        - fixed other variable names for readability
+# v1.6.5 - fixed possible network timing issues (paul d) where hydro_qc updates WCO period just before noon, local HA time!
+# v2.0.0 - a partial rewrite due to the misinterpretation of the temperature adjustment for method 2.
+#          certain sensors are no longer required.
+
+substitutions:
+  pkg_version: "2.0.0"
+
+globals:
+  # required for WCO
+  - id: Wh_at_period_start
+    type: float
+    initial_value: '0'
+
+  # required for WCO
+#  - id: anchor_target_mode
+#    type: int
+#    initial_value: '0'
+
+  # required for WCO
+  - id: last_energyTracked
+    type: float
+    initial_value: '0'
+
+  - id: ts_anchor_start
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+text_sensor:
+  # fetch the current HQ period: normal, peak, anchor, critical_peak, critical_anchor, unknown
+  - platform: homeassistant
+    id: hq_period
+    entity_id: sensor.hydroqc_maison_current_wc_period_detail
+    
+
+
+#binary_sensor:
+  # BINARY SENSOR - Determines if we need to stay UNDER the target or EXCEED the target
+  # return 0 means stay under target, 1 means exceed target
+#  - platform: template
+#    name: "HQ Critical Anchor Mode"
+#    id: hq_critical_anchor_mode
+#    lambda: !lambda 'return id(anchor_target_mode);'
+
+
+esphome:
+  on_boot: #
+    priority: -100
+    then:
+      - switch.template.publish:
+          id: test_critical_anchor
+          state: OFF
+#      - switch.template.publish:
+#          id: test_reverse_critical_anchor_mode
+#          state: OFF
+
+switch:
+  - platform: template
+    name: "TEST - Start Critical Anchor Energy Monitoring"
+    id: test_critical_anchor
+    optimistic: true 
+
+#  - platform: template
+#    name: "TEST - Reverse Anchor Energy Mode"
+#    id: test_reverse_critical_anchor_mode
+#    optimistic: true 
+
+
+number:
+  - platform: template
+    name: "Estimated kWh - Critical Peak"
+    id: estimated_critical_peak
+    optimistic: true
+    min_value: 0
+    max_value: 20
+    step: 1
+
+  - platform: template
+    name: "Estimated Untracked kWh - Critical Anchor"
+    id: estimated_untracked_critical_anchor
+    optimistic: true
+    min_value: 0
+    max_value: 20
+    step: 1
+
+
+sensor:
+  # from sql sensor
+  - platform: homeassistant
+    id: anchor_average
+    entity_id: sensor.wco_anchor_avg
+    accuracy_decimals: 1
+
+  # from sql sensor
+  - platform: homeassistant
+    id: peak_average
+    entity_id: sensor.wco_peak_avg
+    accuracy_decimals: 1
+
+  # from sql sensor
+  - platform: homeassistant
+    id: critical_average
+    entity_id: sensor.wco_critical_avg
+    accuracy_decimals: 1
+
+  # provides a calculated TARGET kWh that we need to attain to maximise WCO credit $    
+  - platform: template
+    name: "HQ Critical Anchor Target"
+    accuracy_decimals: 1
+    state_class: "measurement"
+    unit_of_measurement: "kWh"
+    update_interval: 60s
+    id: hq_critical_anchor
+    lambda: !lambda |-
+              //updated with new logic verifies both methods and chooses the one with the least kWh needed during critical anchor (most WCO credit $)
+              float Pcrt =  id(estimated_critical_peak).state; // Peak Critical Average/Estimate - manual entry
+              if (Pcrt == 0) {
+                Pcrt =  id(critical_average).state;
+              } // if manual = 0, then use SQL Peak Critical Average instead
+              float Pavg =  id(peak_average).state;  // Peak Average from sql query
+              float Aavg =  id(anchor_average).state; // Anchor Average from sql query
+              std::string AmPm = "AM";
+              // now calculate using both methods
+              float T = 0;
+              float T2 = Aavg * 3; // used for max credit over 40 kWh
+              //
+              if ((id(my_time).now().hour  < 12 )) {
+                //AM Event calculation
+                T = (40.0 + Pcrt - Pavg) * 0.75  + Aavg;
+                AmPm = "AM";
+              } else {
+                //PM Event calculation
+                T = (40.0 + Pcrt - Pavg) * 0.5  + Aavg;
+                AmPm = "PM";
+              }
+
+              // debug logging...
+              ESP_LOGI("WCO", "=== HQ CRITICAL ANCHOR TARGET CALCULATION ROUTINE ===");
+              ESP_LOGI("WCO", "Period: %s", AmPm.c_str() );
+              ESP_LOGI("WCO", "Aavg - Anchor Average Estimate: %0.2f kWh", Aavg );
+              ESP_LOGI("WCO", "Pavg - Peak Average Estimate: %0.2f kWh", Pavg );
+              ESP_LOGI("WCO", "Pcrt - Peak Critical Estimate: %0.2f kWh", Pcrt );
+              ESP_LOGI("WCO", "T - Target Anchor: %0.2f kWh", T );
+              ESP_LOGI("WCO", "T2 - Alternate Target Anchor: %0.2f kWh", T2 );
+
+              // now compare credit $ using both methods
+              float Crate = 0.56786;
+              //
+              // METHOD 1 - traditional method, but a new cap of 40 kWh curtailed
+              //
+              float C1 = 0; // credit using method 1
+              //calculate M1 Temperature Adjustment
+              if (T - Aavg < 0) {
+                C1 = 0;
+              } else {
+                C1 = (T - Aavg);
+              }
+              // Prorate Temperature Adjustment and add Average Anchor = Energy Reference
+              if ((id(my_time).now().hour  < 12 )) {
+                //AM Event calculation
+                C1 = C1 / 3 * 4 + Pavg;
+              } else {
+                //PM Event calculation
+                C1 = C1 * 2 + Pavg;
+              }
+              // calculate curtailed energy
+              C1 = C1 - Pcrt;
+
+              // if over 40 kWh, then zero
+              if (C1 > 40 ) {
+                C1 = 0;
+              } else {
+                C1 = C1 * Crate;
+              }
+              //
+              // METHOD 2 - limits temp adj of Method 1 to 2 x anchor average
+              //
+              float C2 = 0; // credit using method 2
+              
+              //calculate M2 Temperature Adjustment
+              if (T - Aavg < 0) {
+                C2 = 0;
+              } else if (  (T - Aavg) <= (Aavg * 2) ) {
+                C2 = (T - Aavg);
+              } else {
+                C2 = Aavg * 2;
+              }
+              
+              // Prorate Temperature Adjustment and add Average Anchor = Energy Reference
+              if ((id(my_time).now().hour  < 12 )) {
+                //AM Event calculation
+                C2 = C2 / 3 * 4 + Pavg;
+              } else {
+                //PM Event calculation
+                C2 = C2 * 2 + Pavg;
+              }
+              // calculate curtailed energy
+              C2 = C2 - Pcrt;
+              // if over 40 kWh, then zero
+              //if (C2 <= 40 ) {
+              //  C2 = 0;
+              //} else {
+              C2 = C2 * Crate;
+              //}
+              //
+              
+              // Now calculate maximum credit dollars available for Method 3
+              float C3 = 0; // credit using method 3
+              C3 = Aavg * 2;
+              if ((id(my_time).now().hour  < 12 )) {
+                //AM Event calculation
+                C3 = C3 / 3 * 4 + Pavg;
+              } else {
+                //PM Event calculation
+                C3 = C3 * 2 + Pavg;
+              }
+              // calculate curtailed energy
+              C3 = C3 - Pcrt;
+              C3 = C3 * Crate;
+              // // compare credits using method 1 and 2. return target with greatest CREDIT
+              //
+              // update global binary variable and LOGGERS to check validation methods
+              //
+              // debug logging...
+              ESP_LOGI("WCO", "====== CREDIT DOLLARS -  METHOD 1 vs METHOD 2 vs METHOD 3 ======");
+              ESP_LOGI("WCO", "C1 - MAXimum Credit if not exceeding target  - method 1: $ %0.2f", C1 );
+              ESP_LOGI("WCO", "C2 - MINimum Credit when target exceeded     - method 2: $ %0.2f", C2 );
+              ESP_LOGI("WCO", "C3 - MAXimum Credit when target exceeded     - method 3: $ %0.2f", C3 );
+              if (C1 > C2) {
+                //id(anchor_target_mode) = 0; // set mode to "max value to attain credt"
+                ESP_LOGI("WCO", "Returning Target (T): %0.2f kWh", T );
+                return T;
+              } else {
+                //id(anchor_target_mode) = 1; // set mode to "min value to attain credit"
+                ESP_LOGI("WCO", "Returning Alternate Target (T2): %0.2f kWh", T2 );
+                return T2;  // This is the new target for maximum credit $ if we have exceeded method 1
+              }
+
+
+  # provides a live kWh of whole house energy used during a critical anchor
+  - platform: template
+    accuracy_decimals: 1
+    name: "HQ Critical Anchor Energy"
+    state_class: "measurement"
+    unit_of_measurement: "kWh"
+    update_interval: 60s
+    id: hq_critical_anchor_target
+    lambda: !lambda |-
+              ESP_LOGI("WCO", "=== HQ CRITICAL ANCHOR ENERGY ROUTINE ===");
+              // added test mode and added a validation that we are truly past 1AM or 12 NOON!!! - Paul D case.
+              if  (
+                    (
+                      (id(hq_period).state == "critical_anchor")
+                      &&
+                      (
+                        ((id(my_time).now().hour  > 0 ) && (id(my_time).now().hour  < 5 ))
+                        ||  
+                        ((id(my_time).now().hour  > 11 ) && (id(my_time).now().hour  > 15 ))
+                      )
+                    )
+                    ||
+                    (id(test_critical_anchor).state == true) 
+                  ) 
+                {
+                // display status of test mode
+                ESP_LOGI("WCO", "Test mode: %d", id(test_critical_anchor).state );
+
+                // if the critical anchor just started, then record the time to global
+                if (id(ts_anchor_start) == 0) {
+                  id(ts_anchor_start) = id(my_time).now().timestamp;
+                }
+                // calculate how many seconds have passed since the start of the critical anchor
+                auto now = id(my_time).now();
+                int secondsCriticalAnchor = now.timestamp - id(ts_anchor_start); // get seconds since start of critical anchor
+                ESP_LOGI("WCO", "secondsCriticalAnchor - Seconds since critical anchor start: %d", secondsCriticalAnchor );
+
+                // get the untracked estimate or use critical average
+                float energyUntracked =  id(estimated_untracked_critical_anchor).state;  // Anchor untracked consumption estimate
+                if (energyUntracked == 0) {
+                  if ((id(my_time).now().hour  < 12 )) {
+                    //AM prorate
+                    energyUntracked =  id(critical_average).state * 0.75;
+                  } else {
+                    //PM prorate
+                    energyUntracked =  id(critical_average).state * 0.5;
+                  }
+                }
+                ESP_LOGI("WCO", "energyUntracked - Total untracked consumption: %0.2f kWh", energyUntracked );
+
+                // now calculate how much untracked consumption has occurred until now
+                float untrackedUsed = energyUntracked; // 
+                if ((id(my_time).now().hour  < 12 )) {
+                  //AM prorate
+                  untrackedUsed = energyUntracked * secondsCriticalAnchor / (3 * 60 * 60); // ratio of seconds / seconds of 3 hours for AM anchor
+                } else {
+                  //PM prorate
+                  untrackedUsed = energyUntracked * secondsCriticalAnchor / (2 * 60 * 60); // ratio of seconds / seconds of 3 hours for AM anchor
+                }
+                ESP_LOGI("WCO", "untrackedUsed - Untracked consumption used to date: %0.2f kWh", untrackedUsed );
+
+                // calculate our delta power consumption to arrive at the critical anchor consumption
+                float energyTracked = (id(total_Wh).state - id(Wh_at_period_start))/1000.0; // Power(kW) so far during the critical anchor
+                ESP_LOGI("WCO", "energyTracked - Tracked consumption used to date: %0.2f kWh", energyTracked );
+
+                // finally return the right value based on if we are attempting to exceed the target or arrive at the target.
+
+                //bool anchorMode = id(hq_critical_anchor_mode).state;
+                // if in test mode, check if we need to reverse the state by reading the test switch
+                //if ((id(test_critical_anchor).state == true) && (id(test_reverse_critical_anchor_mode).state == true)) {
+                //  ESP_LOGI("WCO", "Reversing Anchor Mode for testing.");
+                //  anchorMode = !anchorMode;
+                //}
+                // ------------------  OLD LOGIC -----------------------------------------
+                //ESP_LOGI("WCO", "Anchor Mode: %d", anchorMode);
+                //if (anchorMode) {
+                //  // this state = 1, mean we want to exceed the target, thus...
+                //  return energyTracked;
+                //} else {
+                // this state = 0, means we want to stay UNDER the target, so track background consumption closely
+                // ------------------ new logic ---- ALWAYS STAY UNDER TARGET -----------------------------------------
+                // addtional check, only included background consumption if, in fact, our tracked consumption has increased since the last reporting
+                if (energyTracked > id(last_energyTracked)) {
+                  ESP_LOGI("WCO", "Return value with untracked consumption: %0.2f kWh", energyTracked + energyUntracked - untrackedUsed );
+                  return energyTracked + energyUntracked - untrackedUsed;
+                } else {
+                  ESP_LOGI("WCO", "Return previous value of untracked consumption: %0.2f kWh", last_energyTracked, id(last_energyTracked) );
+                  return id(last_energyTracked);
+                }
+                // ------------------ new logic ---- ALWAYS STAY UNDER TARGET -----------------------------------------
+                
+                //}
+                // save our energyTracked value to global
+                ESP_LOGI("WCO", "Saving new energyTracked: %0.2f over old value: %0.2f kWh", energyTracked, id(last_energyTracked) );
+                id(last_energyTracked) = energyTracked;
+
+              } else {
+                // we are not in a critical anchor - reset global variables.
+                ESP_LOGI("WCO", "Not critical anchor, reset parameters.");
+                id(Wh_at_period_start) = id(total_Wh).state;
+                id(ts_anchor_start) = 0;
+                id(last_energyTracked) = 0.0;
+                return 0;
+              }

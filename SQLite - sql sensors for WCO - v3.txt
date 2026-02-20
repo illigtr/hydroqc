@@ -1,0 +1,210 @@
+/* 
+
+
+   ---- NORMAL ANCHOR AVERAGE ----
+ 
+returns ONE value for next ANCHOR AVERAGE (AM/PM) and (WEEKEND/WEEKDAY)
+DO NOT PASTE THIS COMMENT - The SQL GUI integation expects the statement to start with SELECT
+
+Dec 16, 2025 v1.1 fixed dates to not include today
+   fixed wrong hour buckets for pm archor
+Jan 6, 2026 - exclude special holiday days, watch our for partial critical days!
+Feb 9, 2026 - partial critical days count as full critical and must be excluded.
+
+*/
+SELECT SUM(S.avghours) AS avg
+FROM (
+ SELECT A.hour, (SUM(A.kWh) - MIN(A.kWh) - MAX(A.kWh)) / 3 AS avghours
+ FROM (
+  SELECT strftime('%H', S.start_ts, 'unixepoch', 'localtime') AS hour, strftime('%Y-%m-%d', S.start_ts, 'unixepoch', 'localtime') AS DATE, S.STATE AS kWh
+  FROM STATISTICS AS S
+  INNER JOIN statistics_meta AS M ON S.metadata_id = M.id
+  WHERE M.statistic_id = 'sensor.hydroqc_maison_total_hourly_consumption'
+   AND (
+    CASE 
+     WHEN strftime('%H', 'now', 'localtime') < '12' --we are in AM period
+      THEN strftime('%H', S.start_ts, 'unixepoch', 'localtime') IN ('01', '02', '03')
+     ELSE strftime('%H', S.start_ts, 'unixepoch', 'localtime') IN ('12', '13')
+     END
+    )
+  ) AS A
+ WHERE A.DATE IN (
+   SELECT DISTINCT D.DATE
+   FROM (
+    SELECT strftime('%Y-%m-%d', S.start_ts, 'unixepoch', 'localtime') AS DATE
+    FROM STATISTICS AS S
+    INNER JOIN statistics_meta AS M ON S.metadata_id = M.id
+    WHERE M.statistic_id = 'sensor.hydroqc_maison_total_hourly_consumption'
+     AND (
+      CASE 
+       WHEN strftime('%w', 'now', 'localtime') IN ('0', '6') -- weekend
+        THEN strftime('%w', S.start_ts, 'unixepoch', 'localtime') IN ('0', '6') --weekend days
+       ELSE strftime('%w', S.start_ts, 'unixepoch', 'localtime') NOT IN ('0', '6') --weekdays
+       END
+      )
+    ) AS D
+   WHERE D.DATE NOT IN (
+     SELECT DISTINCT strftime('%Y-%m-%d', S.last_updated_ts, 'unixepoch', 'localtime') AS DATE
+     FROM "states" AS S
+     WHERE S.STATE IN ('critical_peak')
+     )
+    AND D.DATE <> strftime('%Y-%m-%d', 'now', 'localtime')
+    AND D.DATE NOT IN ('2025-12-24', '2025-12-25', '2025-12-26', '2025-12-31', '2026-01-01', '2026-01-02')
+   ORDER BY D.DATE DESC LIMIT 5
+   )
+ GROUP BY A.hour
+ ) AS S
+
+/* 
+
+   ---- NORMAL PEAK AVERAGE ----
+ 
+-- returns ONE value for next PEAK AVERAGE (AM/PM) and (WEEKEND/WEEKDAY)
+DO NOT PASTE THIS COMMENT - The SQL GUI integation expects the statement to start with SELECT
+
+Dec 16, 2025 v1.1 fixed dates to not include today
+Jan 6, 2026 - exclude special holiday days, watch out for partial critical days... 
+Feb 9, 2026 - partial critical days count as full critical and must be excluded.
+
+*/
+SELECT SUM(S.avghours) AS avg
+FROM (
+ SELECT A.hour, (SUM(A.kWh) - MIN(A.kWh) - MAX(A.kWh)) / 3 AS avghours
+ FROM (
+  SELECT strftime('%H', S.start_ts, 'unixepoch', 'localtime') AS hour, strftime('%Y-%m-%d', S.start_ts, 'unixepoch', 'localtime') AS DATE, S.STATE AS kWh
+  FROM STATISTICS AS S
+  INNER JOIN statistics_meta AS M ON S.metadata_id = M.id
+  WHERE M.statistic_id = 'sensor.hydroqc_maison_total_hourly_consumption'
+   AND (
+    CASE 
+     WHEN strftime('%H', 'now', 'localtime') < '12' --we are in AM period
+      THEN strftime('%H', S.start_ts, 'unixepoch', 'localtime') IN ('06', '07', '08', '09')
+     ELSE strftime('%H', S.start_ts, 'unixepoch', 'localtime') IN ('16', '17', '18', '19')
+     END
+    )
+  ) AS A
+ WHERE A.DATE IN (
+   SELECT DISTINCT D.DATE
+   FROM (
+    SELECT strftime('%Y-%m-%d', S.start_ts, 'unixepoch', 'localtime') AS DATE
+    FROM STATISTICS AS S
+    INNER JOIN statistics_meta AS M ON S.metadata_id = M.id
+    WHERE M.statistic_id = 'sensor.hydroqc_maison_total_hourly_consumption'
+     AND (
+      CASE 
+       WHEN strftime('%w', 'now', 'localtime') IN ('0', '6') -- weekend
+        THEN strftime('%w', S.start_ts, 'unixepoch', 'localtime') IN ('0', '6') --weekend days
+       ELSE strftime('%w', S.start_ts, 'unixepoch', 'localtime') NOT IN ('0', '6') --weekdays
+       END
+      )
+    ) AS D
+   WHERE D.DATE NOT IN (
+     SELECT DISTINCT strftime('%Y-%m-%d', S.last_updated_ts, 'unixepoch', 'localtime') AS DATE
+     FROM "states" AS S
+     WHERE S.STATE IN ('critical_peak')
+     )
+    AND D.DATE <> strftime('%Y-%m-%d', 'now', 'localtime')
+    AND D.DATE NOT IN ('2025-12-24', '2025-12-25', '2025-12-26', '2025-12-31', '2026-01-01', '2026-01-02')
+   ORDER BY D.DATE DESC LIMIT 5
+   )
+ GROUP BY A.hour
+ ) AS S
+
+/* 
+
+   ---- CRITICAL PEAK AVERAGE ----
+ 
+-- returns ONE value for next **CRITICAL** PEAK AVERAGE (AM/PM) and (WEEKEND/WEEKDAY)
+
+-- cannot use logic as hydro quebec, removing min/max out of each hour range... as there simply
+   may not be enough critical days history especially for Dec/Jan...
+
+WARNING -- THIS MAY NOT RETURN VALID DATA UNTIL 
+
+DO NOT PASTE THIS COMMENT - The SQL GUI integation expects the statement to start with SELECT
+Jan 5, 2026 - v1.0 
+Jan 6, 2026 - v1.1 - put back missing data from early January due to recorder 10 day limit 
+            - v1.2 - had to extract exactly the AM or PM peak data, because not all critical days have both critial AM and PM
+Feb 9, 2026 - v1.3 - this sensor MUST take into account both day and period to actually pick up critical peak average
+
+*/
+SELECT AVG(S.sumhours) AS avg
+FROM (
+ SELECT A.DATE, SUM(A.kWh) AS sumhours
+ FROM (
+  SELECT strftime('%H', S.start_ts, 'unixepoch', 'localtime') AS hour, strftime('%Y-%m-%d', S.start_ts, 'unixepoch', 'localtime') AS DATE, S.STATE AS kWh
+  FROM STATISTICS AS S
+  INNER JOIN statistics_meta AS M ON S.metadata_id = M.id
+  WHERE M.statistic_id = 'sensor.hydroqc_maison_total_hourly_consumption'
+   AND (
+    CASE 
+     WHEN strftime('%H', 'now', 'localtime') < '12' --we are in AM period
+      THEN strftime('%H', S.start_ts, 'unixepoch', 'localtime') IN ('06', '07', '08', '09')
+     ELSE strftime('%H', S.start_ts, 'unixepoch', 'localtime') IN ('16', '17', '18', '19')
+     END
+    )
+  ) AS A
+ WHERE A.DATE IN (
+   SELECT DISTINCT D.DATE
+   FROM (
+    SELECT strftime('%Y-%m-%d', S.start_ts, 'unixepoch', 'localtime') AS DATE
+    FROM STATISTICS AS S
+    INNER JOIN statistics_meta AS M ON S.metadata_id = M.id
+    WHERE M.statistic_id = 'sensor.hydroqc_maison_total_hourly_consumption'
+     AND (
+      CASE 
+       WHEN strftime('%w', 'now', 'localtime') IN ('0', '6') -- weekend
+        THEN strftime('%w', S.start_ts, 'unixepoch', 'localtime') IN ('0', '6') --weekend days
+       ELSE strftime('%w', S.start_ts, 'unixepoch', 'localtime') NOT IN ('0', '6') --weekdays
+       END
+      )
+    ) AS D
+   WHERE D.DATE IN (
+     SELECT C.DATE
+     FROM (
+      SELECT DISTINCT strftime('%Y-%m-%d', S.last_updated_ts, 'unixepoch', 'localtime') AS DATE, strftime('%H', S.last_updated_ts, 'unixepoch', 'localtime') AS hour
+      FROM "states" AS S
+      WHERE S.STATE IN ('critical_peak')
+      
+      UNION ALL
+      
+      SELECT '2025-12-03' AS DATE, '06' AS hour
+      
+      UNION ALL
+      
+      SELECT '2025-12-05' AS DATE, '06' AS hour
+      
+      UNION ALL
+      
+      SELECT '2025-12-08' AS DATE, '06' AS hour
+      
+      UNION ALL
+      
+      SELECT '2025-12-08' AS DATE, '16' AS hour
+      
+      UNION ALL
+      
+      SELECT '2025-12-09' AS DATE, '06' AS hour
+      
+      UNION ALL
+      
+      SELECT '2025-12-14' AS DATE, '06' AS hour
+      
+      UNION ALL
+      
+      SELECT '2025-12-14' AS DATE, '16' AS hour
+      ) AS C
+     WHERE (
+       CASE 
+        WHEN strftime('%H', 'now', 'localtime') < '12' --we are in AM period
+         THEN C.hour = '06'
+        ELSE C.hour = '16'
+        END
+       )
+     )
+    AND D.DATE <> strftime('%Y-%m-%d', 'now', 'localtime')
+   ORDER BY D.DATE DESC
+   )
+ --LIMIT 5
+ GROUP BY A.DATE
+ ) AS S
