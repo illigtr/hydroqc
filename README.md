@@ -12,10 +12,12 @@ This year, an addtional tool was built: The WCO simulator and validator spreadsh
 
 Please see the Wiki for detailed instruction and explanations of the HA optimisations and WCO simulator and validator spreadsheet
 
-### A word from the author:
+## A word from the author:
+> The author does not work, directly or indirectly with Hydro Quebec. The tools here in are in no way associated with Hydro Quebec.
+>
 > Under no circumstances does the author condone or encourage the abuse of the Hydro Quebec Winter Credit Option by wasteful energy use for the sole purpose of deriving credit dollars.
 
-## License
+### License
 
 > This code is released into the public domain for non-commercial use.
 > 
@@ -25,6 +27,6 @@ Please see the Wiki for detailed instruction and explanations of the HA optimisa
 > This code is provided "as is" without warranty of any kind, express or
 > implied. The author shall not be held liable for any damages, losses, or
 > other issues arising from the use, misuse, or inability to use this code.
-
+>
 > Commercial use requires prior written permission from the author.
 
