@@ -2,7 +2,7 @@
 
 This repository contains my Home Assistant optimisations in order to minimise energy consumption and maximise winter credits offered by Hydro Quebec to customers that join the Rate D - Winter Credit plan, also known as CPC option. You can learn more about how the Winter Credit Option works [here](https://github.com/illigtr/hydroqc/wiki/Understanding-How-Hydro-Quebec's-Winter-Credit-Option-Works)
 
-Historically, I started optimising energy well before HQ introduced the WCO program and even before I had Home Assistant. My goal was to optimise a 35 year old Lennox heat pump that had an energy inefficient timer-based defrost board. By building a new board based on ESP32, I was able to save about $300 annually by defrosting only when necessary.
+Historically, I started optimising energy well before HQ introduced the WCO program and even before I had Home Assistant. My goal was to optimise a 35 year old Lennox heat pump that had an energy inefficient timer-based defrost board. Since each forced defrost cycle after 30 minutes of heat pump run time, wastes significant energy (basically heating the outdoors and cooling the indoors -- in winter), I built a new defrost board based on ESP32. This board only defrosted the outdoor coils when necessary and I was able to save about $300 of electrical energy annually.
 
 Since this project forced me to monitor energy consumption on the heat pump, the electric furnace and other room heating, I extended the project to modify heating patterns when the Winter Credit Option was first introduced as a pilot project. I finally migrated all my custom ESP32 based heating controls over to ESPHome and Home Assistant.
 
