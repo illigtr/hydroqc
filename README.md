@@ -12,7 +12,7 @@ This year, an addtional tool was built: The [WCO simulator and validator spreads
 
 Please see the [Wiki](https://github.com/illigtr/hydroqc/wiki) for detailed instruction and explanations of the HA optimisations and WCO simulator and validator spreadsheet
 
-## A word from the author:
+## A word from the author.
 > The author does not work, directly or indirectly with Hydro Quebec. The tools here in are in no way associated with Hydro Quebec.
 >
 > ***Under no circumstances does the author condone or encourage the abuse of the Hydro Quebec Winter Credit Option by wasteful energy use for the sole purpose of deriving credit dollars.***
