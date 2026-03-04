@@ -8,7 +8,7 @@ Since this project forced me to monitor energy consumption on the heat pump, the
 
 Since 2020, every year, the optimisations have improved, energy consumption has decreased and WCO credit $ have increased. I am sharing these optimisations to anyone having Home Assistant with sensors and controls for energy consumption and home heating.
 
-This year, an addtional tool was built: The [WCO simulator and validator spreadsheet](https://github.com/illigtr/hydroqc/blob/main/WCO%20Validation%20Simulator%20Tool%20-%20v5.2.xlsm).. This tool can fetch a user's winter credit details and full hourly consumption history to validate that your credits are calcuated propertly by Hydro Quebec. Furthermore, the tool allows a user to run "what-if" scenarios in order to determine the best parameters for energy savings all the while maximising credit $ available from Hydro Quebec under the program.
+This year, an addtional tool was built: The [WCO simulator and validator spreadsheet](https://github.com/illigtr/hydroqc/blob/main/WCO%20Validation%20Simulator%20Tool%20-%20v5.2.xlsm). Click on the link, then use the download button in Github to download the spreadsheet to your computer. This tool can fetch a user's winter credit details and full hourly consumption history to validate that your credits are calcuated propertly by Hydro Quebec. Furthermore, the tool allows a user to run "what-if" scenarios in order to determine the best parameters for energy savings all the while maximising credit $ available from Hydro Quebec under the program.
 
 Please see the [Wiki](https://github.com/illigtr/hydroqc/wiki) for detailed instruction and explanations of the HA optimisations and WCO simulator and validator spreadsheet
 
