@@ -1,4 +1,4 @@
-# hydroqc
+# Optimisations and Tools for Home Assistant and hydro-qc add-on for Hydro Quebec's Winter Credit Option.
 
 This repository contains my Home Assistant optimisations in order to minimise energy consumption and maximise winter credits offered by Hydro Quebec to customers that join the Rate D - Winter Credit plan, also known as CPC option. You can learn more about how the Winter Credit Option works [here](https://github.com/illigtr/hydroqc/wiki/Understanding-How-Hydro-Quebec's-Winter-Credit-Option-Works)
 
