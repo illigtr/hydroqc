@@ -10,6 +10,11 @@ Since 2020, every year, the optimisations have improved, energy consumption has 
 
 This year, an addtional tool was built: The [WCO simulator and validator spreadsheet](https://github.com/illigtr/hydroqc/blob/main/WCO%20Validation%20Simulator%20Tool%20-%20v5.2.xlsm). Click on the link, then use the download button in Github to download the spreadsheet to your computer. This tool can fetch a user's winter credit details and full hourly consumption history to validate that your credits are calcuated propertly by Hydro Quebec. Furthermore, the tool allows a user to run "what-if" scenarios in order to determine the best parameters for energy savings all the while maximising credit $ available from Hydro Quebec under the program.
 
+>
+> If you are only interested in using the Simulator/Validator tool, you'll find instructions for the Simulator [here](https://github.com/illigtr/hydroqc/wiki/The-Simulator-Tool), and for the Validator [here](https://github.com/illigtr/hydroqc/wiki/Using-the-Validator-Tool). I appreciate any feedback and if issues are found, please open on issue in Github.
+>
+
+
 Please see the [Wiki](https://github.com/illigtr/hydroqc/wiki) for detailed instruction and explanations of the HA optimisations and WCO simulator and validator spreadsheet
 
 ## A word from the author.
