@@ -1,0 +1,42 @@
+SELECT SUM(S.avghours) AS avg
+FROM (
+ SELECT A.hour, (SUM(A.kWh) - MIN(A.kWh) - MAX(A.kWh)) / 3 AS avghours
+ FROM (
+  SELECT strftime('%H', S.start_ts, 'unixepoch', 'localtime') AS hour, strftime('%Y-%m-%d', S.start_ts, 'unixepoch', 'localtime') AS DATE, S.STATE AS kWh
+  FROM STATISTICS AS S
+  INNER JOIN statistics_meta AS M ON S.metadata_id = M.id
+  WHERE M.statistic_id = 'sensor.hydroqc_maison_total_hourly_consumption'
+   AND (
+    CASE 
+     WHEN strftime('%H', 'now', 'localtime') < '12' --we are in AM period
+      THEN strftime('%H', S.start_ts, 'unixepoch', 'localtime') IN ('06', '07', '08', '09')
+     ELSE strftime('%H', S.start_ts, 'unixepoch', 'localtime') IN ('16', '17', '18', '19')
+     END
+    )
+  ) AS A
+ WHERE A.DATE IN (
+   SELECT DISTINCT D.DATE
+   FROM (
+    SELECT strftime('%Y-%m-%d', S.start_ts, 'unixepoch', 'localtime') AS DATE
+    FROM STATISTICS AS S
+    INNER JOIN statistics_meta AS M ON S.metadata_id = M.id
+    WHERE M.statistic_id = 'sensor.hydroqc_maison_total_hourly_consumption'
+     AND (
+      CASE 
+       WHEN strftime('%w', 'now', 'localtime') IN ('0', '6') -- weekend
+        THEN strftime('%w', S.start_ts, 'unixepoch', 'localtime') IN ('0', '6') --weekend days
+       ELSE strftime('%w', S.start_ts, 'unixepoch', 'localtime') NOT IN ('0', '6') --weekdays
+       END
+      )
+    ) AS D
+   WHERE D.DATE NOT IN (
+     SELECT DISTINCT strftime('%Y-%m-%d', S.last_updated_ts, 'unixepoch', 'localtime') AS DATE
+     FROM "states" AS S
+     WHERE S.STATE IN ('critical_peak')
+     )
+    AND D.DATE <> strftime('%Y-%m-%d', 'now', 'localtime')
+    AND D.DATE NOT IN ('2025-12-24', '2025-12-25', '2025-12-26', '2025-12-31', '2026-01-01', '2026-01-02')
+   ORDER BY D.DATE DESC LIMIT 5
+   )
+ GROUP BY A.hour
+ ) AS S

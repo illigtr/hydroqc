@@ -1,0 +1,66 @@
+SELECT AVG(S.sumhours) AS avg
+FROM (
+ SELECT A.DATE, SUM(A.kWh) AS sumhours
+ FROM (
+  SELECT strftime('%H', S.start_ts, 'unixepoch', 'localtime') AS hour, strftime('%Y-%m-%d', S.start_ts, 'unixepoch', 'localtime') AS DATE, S.STATE AS kWh
+  FROM STATISTICS AS S
+  INNER JOIN statistics_meta AS M ON S.metadata_id = M.id
+  WHERE M.statistic_id = 'sensor.hydroqc_maison_total_hourly_consumption'
+   AND (
+    CASE 
+     WHEN strftime('%H', 'now', 'localtime') < '12' --we are in AM period
+      THEN strftime('%H', S.start_ts, 'unixepoch', 'localtime') IN ('06', '07', '08', '09')
+     ELSE strftime('%H', S.start_ts, 'unixepoch', 'localtime') IN ('16', '17', '18', '19')
+     END
+    )
+  ) AS A
+ WHERE A.DATE IN (
+   SELECT DISTINCT D.DATE
+   FROM (
+    SELECT strftime('%Y-%m-%d', S.start_ts, 'unixepoch', 'localtime') AS DATE
+    FROM STATISTICS AS S
+    INNER JOIN statistics_meta AS M ON S.metadata_id = M.id
+    WHERE M.statistic_id = 'sensor.hydroqc_maison_total_hourly_consumption'
+     AND (
+      CASE 
+       WHEN strftime('%w', 'now', 'localtime') IN ('0', '6') -- weekend
+        THEN strftime('%w', S.start_ts, 'unixepoch', 'localtime') IN ('0', '6') --weekend days
+       ELSE strftime('%w', S.start_ts, 'unixepoch', 'localtime') NOT IN ('0', '6') --weekdays
+       END
+      )
+    ) AS D
+   WHERE D.DATE IN (
+     SELECT C.DATE
+     FROM (
+      SELECT DISTINCT strftime('%Y-%m-%d', S.last_updated_ts, 'unixepoch', 'localtime') AS DATE, strftime('%H', S.last_updated_ts, 'unixepoch', 'localtime') AS hour
+      FROM "states" AS S
+      WHERE S.STATE IN ('critical_peak')
+      UNION ALL
+      SELECT '2025-12-03' AS DATE, '06' AS hour
+      UNION ALL
+      SELECT '2025-12-05' AS DATE, '06' AS hour
+      UNION ALL
+      SELECT '2025-12-08' AS DATE, '06' AS hour
+      UNION ALL
+      SELECT '2025-12-08' AS DATE, '16' AS hour
+      UNION ALL
+      SELECT '2025-12-09' AS DATE, '06' AS hour
+      UNION ALL
+      SELECT '2025-12-14' AS DATE, '06' AS hour
+      UNION ALL
+      SELECT '2025-12-14' AS DATE, '16' AS hour
+      ) AS C
+     WHERE (
+       CASE 
+        WHEN strftime('%H', 'now', 'localtime') < '12' --we are in AM period
+         THEN C.hour = '06'
+        ELSE C.hour = '16'
+        END
+       )
+     )
+    AND D.DATE <> strftime('%Y-%m-%d', 'now', 'localtime')
+   ORDER BY D.DATE DESC
+   )
+ --LIMIT 5
+ GROUP BY A.DATE
+ ) AS S
